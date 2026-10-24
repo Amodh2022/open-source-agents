@@ -16,7 +16,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from .redaction import find_credentials, redact as _redact
+from ..safety.redaction import find_credentials, redact as _redact
 
 SKIP_DIRS = {".git", ".venv", "venv", "env", "node_modules", "__pycache__", ".pytest_cache", ".generated"}
 MAX_READ_BYTES = 20_000

@@ -18,8 +18,8 @@ os.environ["PR_SCOPE"] = "off"  # the git scope check depends on repo state
 os.chdir(PROJECT)
 
 from cases import SAMPLES  # noqa: E402
-from readme_reviewer.checks import run_deterministic_checks  # noqa: E402
-from readme_reviewer.scoring import build_report  # noqa: E402
+from review_core.analysis.checks import run_deterministic_checks  # noqa: E402
+from review_core.analysis.scoring import build_report  # noqa: E402
 
 DEMO = HERE / ".generated" / "demo" / "note-summarizer"
 

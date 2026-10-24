@@ -9,9 +9,9 @@ from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 from pydantic import ValidationError
 
-from .checks import CRITERIA
+from ..analysis.checks import CRITERIA
 from .redaction import contains_credential, response_text
-from .scoring import CriterionScores, ReviewReport, build_report
+from ..analysis.scoring import CriterionScores, ReviewReport, build_report
 
 
 def _parse(text: str):

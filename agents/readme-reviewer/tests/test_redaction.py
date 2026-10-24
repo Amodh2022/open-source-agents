@@ -5,7 +5,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from readme_reviewer.redaction import (
+from review_core.safety.redaction import (
     BLOCKED_MESSAGE,
     REDACTED,
     block_secret_output,
@@ -15,8 +15,8 @@ from readme_reviewer.redaction import (
     redact_model_input,
     redact_value,
 )
-from readme_reviewer.schema_guard import ensure_valid_review
-from readme_reviewer.tools import scan_for_secrets
+from review_core.safety.schema_guard import ensure_valid_review
+from review_core.analysis.tools import scan_for_secrets
 
 # Built from parts so this file never contains a literal key for the scanner to flag.
 GOOGLE = "AIza" + "A" * 35

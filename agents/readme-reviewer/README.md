@@ -25,6 +25,39 @@
 
 ---
 
+## Project Structure
+
+```
+agents/readme-reviewer/
+├── README.md  requirements.txt  requirements-nvidia.txt  requirements-eval.txt
+├── .env.example  .gitignore
+├── review.py                    # one-command CLI entry point
+├── readme_reviewer/             # ADK agent: simple mode (adk run readme_reviewer)
+│   └── agent.py
+├── readme_reviewer_team/        # ADK agent: team mode (adk run readme_reviewer_team)
+│   └── agent.py
+├── review_core/                 # shared library; defines no agents
+│   ├── analysis/                # deterministic checks, scoring, report schema
+│   │   ├── tools.py             #   file/README/secret/risky-code/scope checks, path sandbox
+│   │   ├── checks.py            #   pass/fail checks grouped by criterion
+│   │   ├── links.py             #   broken-link check
+│   │   └── scoring.py           #   score, verdict, ReviewReport schema
+│   ├── safety/                  # guardrails
+│   │   ├── redaction.py         #   credential redaction/blocking callbacks
+│   │   ├── guardrails.py        #   tool-call limiter
+│   │   └── schema_guard.py      #   repairs invalid aggregator output
+│   ├── models.py                # Gemini / NVIDIA model selection
+│   ├── review_tools.py          # per-criterion tools for the team
+│   ├── finalizer.py             # code-only report and state-reset agents
+│   └── cli.py                   # spinner, report formatting, error messages
+├── tests/                       # pytest; no key or network needed
+└── evals/                       # sample projects, expected outcomes, adk eval set and runner
+```
+
+`readme_reviewer/` and `readme_reviewer_team/` are thin ADK agent packages (each has the `__init__.py` + `agent.py` that ADK expects). Everything testable without a model lives in `review_core/`.
+
+---
+
 ## Technical Stack
 
 - **Language & Runtime**: Python 3.11+ (developed and tested on Python 3.14)
@@ -61,7 +94,7 @@
           {overall_score, criterion_scores, failures, suggested_fixes, verdict}
 ```
 
-All checking is deterministic Python (`tools.py`, `checks.py`, `links.py`). Models only call the tools and write explanations. Score = percent of applicable checks passed per criterion, overall = mean; verdict is `ready` at 85+ with a perfect security score. If the aggregator returns invalid JSON, `schema_guard.py` replaces it with the deterministic report instead of crashing. Each reviewer gets only the tools it needs.
+All checking is deterministic Python (`review_core/analysis/`: `tools.py`, `checks.py`, `links.py`, `scoring.py`). Models only call the tools and write explanations. Score = percent of applicable checks passed per criterion, overall = mean; verdict is `ready` at 85+ with a perfect security score. If the aggregator returns invalid JSON, `review_core/safety/schema_guard.py` replaces it with the deterministic report instead of crashing. Each reviewer gets only the tools it needs.
 
 ---
 
@@ -254,7 +287,7 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
 ## Known Limitations
 
 - **Free-tier rate limits.** Gemini's free tier allowed 5 requests/minute for `gemini-2.5-flash` when tested. Simple mode usually fits; team mode needs about seven requests per review and hit `429 RESOURCE_EXHAUSTED`. Use a billed Gemini key or the NVIDIA provider for team mode.
-- **Team mode was verified live only on NVIDIA** (`meta/muse-glimmer-30b`, one run on `template`). Its reasoning-style model prints its thinking in the reviewer notes, and once answered the aggregator in prose instead of JSON, which is why `schema_guard.py` exists. It has not completed a full run on Gemini because of the free-tier limit above.
+- **Team mode was verified live only on NVIDIA** (`meta/muse-glimmer-30b`, one run on `template`). Its reasoning-style model prints its thinking in the reviewer notes, and once answered the aggregator in prose instead of JSON, which is why `review_core/safety/schema_guard.py` exists. It has not completed a full run on Gemini because of the free-tier limit above.
 - **Provider coverage.** Live runs: simple and team modes on NVIDIA `meta/muse-glimmer-30b`, simple mode on Gemini `gemini-2.5-flash`. Team mode has not completed a run on Gemini (free-tier limit). No other models were tried.
 - **Visible model thinking.** `meta/muse-glimmer-30b` prints its reasoning in its replies. `adk run` shows it; `python review.py` hides it. The report itself is unaffected because its scores come from code.
 - Section matching is by heading keyword; "thin section" is a word-count heuristic, not a quality judgement.
@@ -274,7 +307,7 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
   - **Read-only**: no write tools and no model-controlled shell. The only subprocess use is fixed read-only `git` commands (no shell, validated branch name, 10 s timeout).
   - **Path sandbox**: every path is resolved and must stay inside `ALLOWED_ROOT` (default: the git repo). `..`, absolute paths elsewhere and symlinks that escape are denied; symlinks are never followed during scans.
   - **Prompt-injection defence**: file contents are returned marked as untrusted, and every agent's instructions say never to follow instructions found in files.
-  - **Credential redaction (model input)**: a `before_model_callback` (`redaction.py`) replaces anything that looks like a credential with `[REDACTED]` in everything sent to the model: your message, file contents and tool results. Pasting a key into the chat does not send it to the provider.
+  - **Credential redaction (model input)**: a `before_model_callback` (`review_core/safety/redaction.py`) replaces anything that looks like a credential with `[REDACTED]` in everything sent to the model: your message, file contents and tool results. Pasting a key into the chat does not send it to the provider.
   - **Credential blocking (model output)**: an `after_model_callback` replaces any model answer containing a credential with a notice; for the aggregator's JSON, the deterministic report replaces it. The scanner and the guardrail share one pattern list (Google, NVIDIA, OpenAI-style, GitHub, Slack, AWS, private-key headers, quoted `api_key = "..."` assignments); obvious placeholders such as `your_api_key_here` are ignored. Limits: pattern-based, so unusual formats can slip through, and a credential split across streaming chunks is only caught when the full answer arrives.
   - **Loop and size limits**: a `before_tool_callback` caps tool calls per agent per run (`MAX_TOOL_CALLS`) and rejects oversized arguments; reads and listings are size-capped.
   - **Least privilege (team mode)**: each specialist only has the tools for its job; for example the security reviewer cannot read arbitrary files.

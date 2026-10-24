@@ -4,8 +4,8 @@ from google.adk.agents import BaseAgent
 from google.adk.events import Event, EventActions
 from google.genai import types
 
-from .checks import CRITERIA
-from .scoring import build_report, extra_fixes_from
+from .analysis.checks import CRITERIA
+from .analysis.scoring import build_report, extra_fixes_from
 
 # State written during a review. Cleared at the start of every run so a follow-up question
 # (for example a misspelled folder) can never reprint the previous review's results.

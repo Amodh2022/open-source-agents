@@ -1,6 +1,6 @@
 import subprocess
 
-from readme_reviewer.tools import check_pr_scope, check_readme_quality
+from review_core.analysis.tools import check_pr_scope, check_readme_quality
 
 GOOD = """# Demo
 ## Overview
@@ -112,7 +112,7 @@ def test_scope_rejects_unsafe_base_ref(tmp_path, monkeypatch):
 
 # ---- git-ignored local files are not blockers ------------------------------- #
 def test_ignored_env_and_venv_are_not_findings(tmp_path):
-    from readme_reviewer.tools import scan_for_secrets
+    from review_core.analysis.tools import scan_for_secrets
 
     git(tmp_path, "init", "-b", "main")
     proj = tmp_path / "proj"
@@ -126,7 +126,7 @@ def test_ignored_env_and_venv_are_not_findings(tmp_path):
 
 
 def test_unignored_env_is_still_a_finding(tmp_path):
-    from readme_reviewer.tools import scan_for_secrets
+    from review_core.analysis.tools import scan_for_secrets
 
     git(tmp_path, "init", "-b", "main")
     proj = tmp_path / "proj"

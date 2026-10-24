@@ -22,8 +22,8 @@ from google.adk.evaluation.eval_set import EvalSet  # noqa: E402
 from google.genai import types  # noqa: E402
 
 from cases import CASES, build_samples  # noqa: E402
-from readme_reviewer.checks import run_deterministic_checks  # noqa: E402
-from readme_reviewer.scoring import build_report  # noqa: E402
+from review_core.analysis.checks import run_deterministic_checks  # noqa: E402
+from review_core.analysis.scoring import build_report  # noqa: E402
 
 GENERATED = HERE / ".generated"
 EVALSET = HERE / "readme_reviewer.evalset.json"

@@ -19,7 +19,7 @@ import time
 import warnings
 from pathlib import Path
 
-from .scoring import ReviewReport
+from .analysis.scoring import ReviewReport
 
 PROJECT = Path(__file__).resolve().parents[1]
 APP_NAME = "readme_reviewer"

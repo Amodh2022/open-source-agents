@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from readme_reviewer import cli
-from readme_reviewer.scoring import CriterionScores, Failure, ReviewReport
+from review_core import cli
+from review_core.analysis.scoring import CriterionScores, Failure, ReviewReport
 
 
 def report(verdict="needs_changes", failures=(), fixes=("Do the thing",), score=84):
@@ -242,7 +242,7 @@ def test_interactive_mode_ends_cleanly_on_ctrl_d(monkeypatch):
 # ---- litellm log noise ------------------------------------------------------ #
 def test_nvidia_model_silences_litellm_info_logs(monkeypatch):
     pytest.importorskip("litellm")
-    from readme_reviewer.models import get_model
+    from review_core.models import get_model
 
     monkeypatch.setenv("MODEL_PROVIDER", "nvidia")
     monkeypatch.setenv("MODEL_NAME", "some/model")

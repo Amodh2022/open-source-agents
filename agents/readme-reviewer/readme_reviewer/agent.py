@@ -1,9 +1,9 @@
 from google.adk.agents import Agent
 
-from .guardrails import limit_tool_calls
-from .models import get_model
-from .redaction import block_secret_output, redact_model_input
-from .tools import (
+from review_core.safety.guardrails import limit_tool_calls
+from review_core.models import get_model
+from review_core.safety.redaction import block_secret_output, redact_model_input
+from review_core.analysis.tools import (
     check_folder_name,
     check_manifest,
     check_readme_sections,

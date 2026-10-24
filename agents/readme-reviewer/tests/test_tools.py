@@ -1,4 +1,4 @@
-from readme_reviewer.tools import (
+from review_core.analysis.tools import (
     REQUIRED_SECTIONS,
     check_folder_name,
     check_manifest,

@@ -3,19 +3,19 @@ the structured schema, and a code-only finalizer produces the authoritative scor
 
 from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 
-from readme_reviewer.finalizer import ReportFinalizer, ReviewReset
-from readme_reviewer.guardrails import limit_tool_calls
-from readme_reviewer.models import get_model
-from readme_reviewer.redaction import block_secret_output, redact_model_input
-from readme_reviewer.review_tools import (
+from review_core.finalizer import ReportFinalizer, ReviewReset
+from review_core.safety.guardrails import limit_tool_calls
+from review_core.models import get_model
+from review_core.safety.redaction import block_secret_output, redact_model_input
+from review_core.review_tools import (
     review_documentation,
     review_reproducibility,
     review_scope,
     review_security,
 )
-from readme_reviewer.schema_guard import ensure_valid_review
-from readme_reviewer.scoring import ReviewReport
-from readme_reviewer.tools import read_file
+from review_core.safety.schema_guard import ensure_valid_review
+from review_core.analysis.scoring import ReviewReport
+from review_core.analysis.tools import read_file
 
 COMMON_RULES = """
 The user's message names a project folder (for example "template" or "agents/my-agent").

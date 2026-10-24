@@ -13,14 +13,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "evals"))
 
 from cases import CASES, FAKE_KEY, build_samples, outcome  # noqa: E402
 
-from readme_reviewer.checks import run_deterministic_checks  # noqa: E402
-from readme_reviewer.scoring import build_report  # noqa: E402
+from review_core.analysis.checks import run_deterministic_checks  # noqa: E402
+from review_core.analysis.scoring import build_report  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     monkeypatch.setenv("PR_SCOPE", "off")
-    from readme_reviewer import links
+    from review_core.analysis import links
 
     monkeypatch.setattr(links, "_fetch_status", lambda url: 200)
 
@@ -42,7 +42,7 @@ def test_sample_matches_expected_outcome(samples, case):
 
 
 def test_committed_samples_contain_no_key_like_text():
-    from readme_reviewer.redaction import contains_credential
+    from review_core.safety.redaction import contains_credential
 
     for path in (Path(__file__).resolve().parents[1] / "evals" / "samples").rglob("*"):
         if path.is_file():

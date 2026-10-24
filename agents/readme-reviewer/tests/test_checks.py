@@ -2,9 +2,9 @@ import urllib.error
 
 import pytest
 
-from readme_reviewer import links
-from readme_reviewer.checks import run_deterministic_checks
-from readme_reviewer.tools import REQUIRED_SECTIONS
+from review_core.analysis import links
+from review_core.analysis.checks import run_deterministic_checks
+from review_core.analysis.tools import REQUIRED_SECTIONS
 
 SENTENCE = "This section explains the topic in enough detail for readers to follow along.\n"
 

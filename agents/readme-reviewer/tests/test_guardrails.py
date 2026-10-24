@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from readme_reviewer import guardrails
-from readme_reviewer.models import get_model
-from readme_reviewer.tools import (
+from review_core.safety import guardrails
+from review_core.models import get_model
+from review_core.analysis.tools import (
     check_manifest,
     check_risky_code,
     list_project_files,

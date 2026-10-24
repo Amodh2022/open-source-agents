@@ -6,8 +6,8 @@ state (the finalizer scores from there), and returns them with that criterion's 
 
 from google.adk.tools.tool_context import ToolContext
 
-from .checks import run_deterministic_checks
-from .scoring import score_checks
+from .analysis.checks import run_deterministic_checks
+from .analysis.scoring import score_checks
 
 
 def _review(criterion: str, path: str, tool_context: ToolContext) -> dict:

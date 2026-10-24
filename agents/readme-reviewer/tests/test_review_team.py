@@ -2,9 +2,9 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from readme_reviewer.finalizer import NO_REVIEW_MESSAGE, RESET_STATE, ReportFinalizer, ReviewReset
-from readme_reviewer.review_tools import review_security
-from readme_reviewer.scoring import (
+from review_core.finalizer import NO_REVIEW_MESSAGE, RESET_STATE, ReportFinalizer, ReviewReset
+from review_core.review_tools import review_security
+from review_core.analysis.scoring import (
     FIX_HINTS,
     ReviewReport,
     build_report,
@@ -44,8 +44,8 @@ def test_verdict_needs_high_score_and_perfect_security():
 
 
 def test_every_check_id_has_a_fix_hint(tmp_path, monkeypatch):
-    from readme_reviewer import links
-    from readme_reviewer.checks import run_deterministic_checks
+    from review_core.analysis import links
+    from review_core.analysis.checks import run_deterministic_checks
 
     monkeypatch.setattr(links, "_fetch_status", lambda url: 200)
     proj = tmp_path / "some-project"
@@ -171,7 +171,7 @@ def llm_response(text, partial=False):
 
 
 def guarded(text, state=None, partial=False):
-    from readme_reviewer.schema_guard import ensure_valid_review
+    from review_core.safety.schema_guard import ensure_valid_review
 
     ctx = SimpleNamespace(state=state or {})
     result = ensure_valid_review(ctx, llm_response(text, partial))
