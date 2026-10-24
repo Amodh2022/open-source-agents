@@ -245,6 +245,24 @@ Captured from a genuine `adk run readme_reviewer_team` session (`Review template
 ```
 The aggregator's own JSON is also printed just before this one; only the finalizer's report is authoritative.
 
+### Self-review
+The reviewer reviewing its own folder, a genuine `python review.py readme-reviewer` run (NVIDIA `meta/muse-glimmer-30b`, about 2 minutes, exit status 0). Output with the progress lines it printed:
+
+```
+- Reviewing: 0/4 reviewers done
+- Reviewing: 1/4 reviewers done
+- Reviewing: 2/4 reviewers done
+- Reviewing: 3/4 reviewers done
+- Merging the findings
+- Scoring the report
+
+Score 100/100  ready
+  reproducibility 100 · documentation 100 · security 100 · scope 100
+
+All checks passed.
+```
+This ran with the output redirected, so the CLI printed plain progress lines. On a real terminal the same status is an animated spinner line; that animation was covered by tests but not watched in a live run.
+
 ### Before/After Demo
 `python evals/demo_before_after.py` (no key needed) reviews a weak README, applies the fixes the report asks for, and reviews it again. The script applies the fixes; the reviewer itself never edits files. Real output:
 
