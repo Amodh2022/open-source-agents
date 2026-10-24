@@ -184,7 +184,7 @@ def review_once(text: str, as_json: bool, debug: bool) -> int:
     try:
         report = ReviewReport.model_validate_json(final or "")
     except ValueError:
-        print(final or "No report was produced.", file=sys.stderr if not final else sys.stdout)
+        print(f"error: {final or 'No report was produced.'}", file=sys.stderr)
         return 1
     print(final if as_json else format_report(report, use_color(sys.stdout)))
     return 0 if report.verdict == "ready" else 1

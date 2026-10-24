@@ -105,10 +105,10 @@ def test_review_tool_saves_checks_in_state(tmp_path):
     assert ctx.state["review_project"] == "my-agent"
 
 
-def test_review_tool_error_leaves_state_untouched():
+def test_review_tool_error_is_saved_for_the_finalizer_and_no_checks_are():
     ctx = SimpleNamespace(state={})
     assert "error" in review_security("does-not-exist", ctx)
-    assert ctx.state == {}
+    assert ctx.state == {"review_error": "Path not found: does-not-exist."}
 
 
 # ---- finalizer -------------------------------------------------------------- #
@@ -141,6 +141,12 @@ def test_finalizer_survives_missing_or_junk_model_output():
     for llm in (None, "garbage", {"suggested_fixes": 5}):
         report = ReviewReport.model_validate_json(run_finalizer({**checks, "llm_review": llm}).content.parts[0].text)
         assert report.overall_score == 100 and report.verdict == "ready"
+
+
+def test_finalizer_shows_the_real_error_when_the_review_could_not_start():
+    message = "Path not found: readme-reviwer. Did you mean 'agents/readme-reviewer'?"
+    event = run_finalizer({"review_error": message})
+    assert event.content.parts[0].text == message and event.actions.state_delta == {}
 
 
 def test_finalizer_asks_for_a_folder_when_nothing_was_reviewed():

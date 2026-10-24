@@ -13,6 +13,7 @@ from .analysis.scoring import score_checks
 def _review(criterion: str, path: str, tool_context: ToolContext) -> dict:
     result = run_deterministic_checks(path, [criterion])
     if "error" in result:
+        tool_context.state["review_error"] = result["error"]  # shown by the finalizer
         return result
     tool_context.state[f"checks_{criterion}"] = result["checks"]
     tool_context.state["review_project"] = result["project"]

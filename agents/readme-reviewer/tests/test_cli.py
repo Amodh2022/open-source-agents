@@ -207,9 +207,10 @@ def test_debug_reraises(monkeypatch):
 def test_missing_or_invalid_report_is_an_error(monkeypatch, capsys):
     patch_run(monkeypatch, None)
     assert cli.review_once("Review x", as_json=False, debug=False) == 1
-    patch_run(monkeypatch, "No review was produced. Name a folder to review, for example: Review template")
+    patch_run(monkeypatch, "Path not found: x. Did you mean 'agents/y'?")
     assert cli.review_once("Review x", as_json=False, debug=False) == 1
-    assert "No review was produced" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "error: Path not found: x. Did you mean 'agents/y'?" in captured.err and captured.out == ""
 
 
 def test_main_with_a_folder_sends_a_review_request(monkeypatch):

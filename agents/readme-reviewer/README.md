@@ -19,7 +19,7 @@
 - **Security check**: Flags `.env` files, `.venv` folders, key-like strings (Google, NVIDIA, OpenAI-style, AWS, private keys) and risky code patterns (shell execution, `eval`, recursive delete). Matched values are never printed.
 - **Scope check**: Uses read-only git to confirm changes touch only the project folder plus at most one index row.
 - **One-command CLI** (`python review.py <folder>`): live spinner, final report only, friendly errors, `--json` for scripts.
-- **Friendly paths**: `Review template`, `Review my-agent` or a full path all work; names are resolved inside the repository.
+- **Friendly paths**: `Review template`, `Review my-agent` or a full path all work; names are resolved inside the repository, and a misspelled name gets a suggestion (`Path not found: readme-reviwer. Did you mean 'agents/readme-reviewer'?`).
 - **Configurable model**: Gemini (default) or any NVIDIA-hosted model via an OpenAI-compatible endpoint.
 - **Guardrails** (see Security section).
 
@@ -278,7 +278,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expected: `144 passed` (a few of these need the eval extra and are skipped without it). Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
+Expected: `150 passed` (a few of these need the eval extra and are skipped without it). Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
 
 For an end-to-end check, run `adk run readme_reviewer` with a valid key and review a folder containing a fake `.env` file; the report should mark it as a BLOCKER.
 

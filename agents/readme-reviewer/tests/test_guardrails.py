@@ -186,3 +186,38 @@ def test_generated_folder_is_skipped_like_a_cache(tmp_path):
     (proj / "README.md").write_text("hi")
     assert scan_for_secrets(str(proj))["clean"]
     assert list_project_files(str(proj))["files"] == ["README.md"]
+
+
+# ---- did-you-mean ------------------------------------------------------------ #
+def test_typo_suggests_the_closest_folder(tmp_path):
+    (tmp_path / "agents" / "readme-reviewer").mkdir(parents=True)
+    _, err = resolve_path("readme-reviwer")
+    assert err["did_you_mean"] == "agents/readme-reviewer"
+    assert "Did you mean 'agents/readme-reviewer'?" in err["error"]
+
+
+def test_typo_in_a_nested_path_compares_the_last_part(tmp_path):
+    (tmp_path / "template").mkdir()
+    _, err = resolve_path("agents/templat")
+    assert err["did_you_mean"] == "template"
+
+
+def test_unrelated_name_gets_no_suggestion(tmp_path):
+    (tmp_path / "template").mkdir()
+    _, err = resolve_path("zzzzzzzz")
+    assert "did_you_mean" not in err and "Did you mean" not in err["error"]
+
+
+def test_suggestions_ignore_hidden_and_skipped_folders(tmp_path):
+    for name in (".git", ".venv", "node_modules", "__pycache__"):
+        (tmp_path / name).mkdir()
+    _, err = resolve_path("node_module")
+    assert "did_you_mean" not in err
+
+
+def test_suggestions_never_point_outside_the_root(tmp_path_factory, tmp_path):
+    outside = tmp_path_factory.mktemp("outside")
+    (outside / "secret-project").mkdir()
+    (tmp_path / "link-to-outside").symlink_to(outside / "secret-project")
+    _, err = resolve_path("secret-projec")
+    assert "did_you_mean" not in err

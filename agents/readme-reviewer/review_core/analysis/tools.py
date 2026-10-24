@@ -11,6 +11,7 @@ Guardrails enforced here (not left to the model):
   * Output sizes are capped.
 """
 
+import difflib
 import os
 import re
 import subprocess
@@ -78,6 +79,22 @@ def allowed_root() -> Path:
     return cwd
 
 
+def _suggest_folder(cleaned: str, root: Path):
+    """Closest existing folder name inside the root (cwd, root, agents/, tools/), or None."""
+    options = {}
+    for base in (Path.cwd(), root, root / "agents", root / "tools"):
+        try:
+            entries = [p for p in base.iterdir() if p.is_dir() and not p.name.startswith(".") and p.name not in SKIP_DIRS]
+        except OSError:
+            continue
+        for entry in entries:
+            resolved = entry.resolve()
+            if resolved == root or root in resolved.parents:
+                options.setdefault(entry.name, resolved)
+    match = difflib.get_close_matches(Path(cleaned).name, list(options), n=1, cutoff=0.7)
+    return options[match[0]].relative_to(root).as_posix() if match else None
+
+
 def resolve_path(path: str):
     """Resolve a user-supplied path inside the allowed root.
 
@@ -98,11 +115,15 @@ def resolve_path(path: str):
             candidates.insert(0, root)
     existing = [c.resolve() for c in candidates if c.exists()]
     if not existing:
-        return None, {
-            "error": f"Path not found: {cleaned}",
+        suggestion = _suggest_folder(cleaned, root)
+        error = {
+            "error": f"Path not found: {cleaned}." + (f" Did you mean '{suggestion}'?" if suggestion else ""),
             "searched_under": str(root),
             "hint": "Give a folder name or a path inside the repository.",
         }
+        if suggestion:
+            error["did_you_mean"] = suggestion
+        return None, error
     inside = [c for c in existing if c == root or root in c.parents]
     if not inside:
         return None, {"error": f"Access denied: path is outside the allowed root ({root})."}

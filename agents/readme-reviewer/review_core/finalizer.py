@@ -14,6 +14,7 @@ RESET_STATE = {
     **{f"{criterion}_review": "" for criterion in CRITERIA},
     "llm_review": "",
     "review_project": "",
+    "review_error": "",
     "final_review": {},
 }
 
@@ -35,7 +36,7 @@ class ReportFinalizer(BaseAgent):
             text = report.model_dump_json(indent=2)
             delta = {"final_review": report.model_dump()}
         else:
-            text, delta = NO_REVIEW_MESSAGE, {}
+            text, delta = state.get("review_error") or NO_REVIEW_MESSAGE, {}
         yield Event(
             invocation_id=ctx.invocation_id,
             author=self.name,
