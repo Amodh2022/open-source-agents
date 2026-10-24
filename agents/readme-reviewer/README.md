@@ -301,7 +301,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expected: `150 passed` (a few of these need the eval extra and are skipped without it). Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
+Expected with only `requirements.txt` installed: `147 passed, 3 skipped` (the 3 skips need the optional `litellm` or eval extras; with `requirements-nvidia.txt` and `requirements-eval.txt` installed, all `150 passed`). Verified in a fresh virtual environment built from the committed files only. Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
 
 For an end-to-end check, run `adk run readme_reviewer` with a valid key and review a folder containing a fake `.env` file; the report should mark it as a BLOCKER.
 
@@ -316,7 +316,7 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
 - Section matching is by heading keyword; "thin section" is a word-count heuristic, not a quality judgement.
 - The secret and risky-code scans are regex based: they can miss unusual formats and produce false positives. Files over 1 MB are skipped.
 - `read_file` returns only the first 20 KB, and `list_project_files` lists at most 200 files.
-- The scope check needs a git checkout and a base branch; otherwise it reports "not applicable".
+- The scope check needs a git checkout and a base branch; otherwise it reports "not applicable". For the same reason, outside a git checkout a `.env` file or `.venv` folder is always flagged, because the tool cannot tell whether it is git-ignored.
 - It does not run your project or verify that the setup steps work; you still need a clean-environment test.
 - Tested on macOS only; Windows and Linux are untested.
 
