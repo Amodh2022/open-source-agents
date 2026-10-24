@@ -84,6 +84,7 @@ def test_scope_clean_with_one_index_row(tmp_path):
     assert result["applicable"] and result["within_scope"]
     assert result["index_rows_added"] == 1
     assert result["in_agents_or_tools"] and result["files_outside_project"] == []
+    assert result["project_files_changed"] == 1
 
 
 def test_scope_flags_outside_changes_and_extra_rows(tmp_path):

@@ -467,6 +467,7 @@ def check_pr_scope(path: str) -> dict:
         "project_folder": project_rel,
         "in_agents_or_tools": project_rel.split("/")[0] in {"agents", "tools"},
         "changed_file_count": len(changed),
+        "project_files_changed": sum(1 for f in changed if f.startswith(prefix)),
         "files_outside_project": outside,
         "index_files_changed": index_changed,
         "index_rows_added": rows_added,
