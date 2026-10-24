@@ -3,7 +3,7 @@ the structured schema, and a code-only finalizer produces the authoritative scor
 
 from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 
-from readme_reviewer.finalizer import ReportFinalizer
+from readme_reviewer.finalizer import ReportFinalizer, ReviewReset
 from readme_reviewer.guardrails import limit_tool_calls
 from readme_reviewer.models import get_model
 from readme_reviewer.redaction import block_secret_output, redact_model_input
@@ -108,8 +108,10 @@ finalizer = ReportFinalizer(
     description="Builds the authoritative scored JSON report from the deterministic checks.",
 )
 
+reset = ReviewReset(name="review_reset", description="Clears state left by the previous review.")
+
 root_agent = SequentialAgent(
     name="readme_review_team",
     description="Parallel criterion review, aggregation, then a code-computed final report.",
-    sub_agents=[reviewers, aggregator, finalizer],
+    sub_agents=[reset, reviewers, aggregator, finalizer],
 )

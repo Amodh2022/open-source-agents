@@ -7,6 +7,16 @@ from google.genai import types
 from .checks import CRITERIA
 from .scoring import build_report, extra_fixes_from
 
+# State written during a review. Cleared at the start of every run so a follow-up question
+# (for example a misspelled folder) can never reprint the previous review's results.
+RESET_STATE = {
+    **{f"checks_{criterion}": [] for criterion in CRITERIA},
+    **{f"{criterion}_review": "" for criterion in CRITERIA},
+    "llm_review": "",
+    "review_project": "",
+    "final_review": {},
+}
+
 NO_REVIEW_MESSAGE = "No review was produced. Name a folder to review, for example: Review template"
 
 
@@ -31,4 +41,15 @@ class ReportFinalizer(BaseAgent):
             author=self.name,
             content=types.Content(role="model", parts=[types.Part(text=text)]),
             actions=EventActions(state_delta=delta),
+        )
+
+
+class ReviewReset(BaseAgent):
+    """First step of the team: clears the previous review's state (no model call, no output)."""
+
+    async def _run_async_impl(self, ctx):
+        yield Event(
+            invocation_id=ctx.invocation_id,
+            author=self.name,
+            actions=EventActions(state_delta=dict(RESET_STATE)),
         )

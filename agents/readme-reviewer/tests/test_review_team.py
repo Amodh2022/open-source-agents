@@ -2,7 +2,7 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from readme_reviewer.finalizer import NO_REVIEW_MESSAGE, ReportFinalizer
+from readme_reviewer.finalizer import NO_REVIEW_MESSAGE, RESET_STATE, ReportFinalizer, ReviewReset
 from readme_reviewer.review_tools import review_security
 from readme_reviewer.scoring import (
     FIX_HINTS,
@@ -148,6 +148,20 @@ def test_finalizer_asks_for_a_folder_when_nothing_was_reviewed():
     assert event.content.parts[0].text == NO_REVIEW_MESSAGE and event.actions.state_delta == {}
 
 
+def test_reset_step_clears_every_key_the_finalizer_reads():
+    agent = ReviewReset(name="review_reset")
+    ctx = SimpleNamespace(invocation_id="inv1")
+
+    async def collect():
+        return [e async for e in agent._run_async_impl(ctx)]
+
+    (event,) = asyncio.run(collect())
+    assert event.content is None and event.actions.state_delta == RESET_STATE
+    # after the reset, the finalizer sees no stale review
+    stale = {"checks_security": [check("security", "no_secrets", passed=False)], **RESET_STATE}
+    assert run_finalizer(stale).content.parts[0].text == NO_REVIEW_MESSAGE
+
+
 # ---- schema guard ----------------------------------------------------------- #
 def llm_response(text, partial=False):
     from google.adk.models.llm_response import LlmResponse
@@ -201,7 +215,8 @@ def test_streaming_chunks_are_left_alone():
 def test_team_structure():
     from readme_reviewer_team.agent import root_agent
 
-    reviewers, aggregator, finalizer = root_agent.sub_agents
+    reset, reviewers, aggregator, finalizer = root_agent.sub_agents
+    assert isinstance(reset, ReviewReset)
     assert root_agent.name == "readme_review_team"
     assert [a.name for a in reviewers.sub_agents] == [
         "reproducibility_reviewer", "documentation_reviewer", "security_reviewer", "scope_reviewer"]

@@ -18,6 +18,7 @@
 - **Reproducibility check**: Looks for a dependency manifest, `.env.example` and `.gitignore`.
 - **Security check**: Flags `.env` files, `.venv` folders, key-like strings (Google, NVIDIA, OpenAI-style, AWS, private keys) and risky code patterns (shell execution, `eval`, recursive delete). Matched values are never printed.
 - **Scope check**: Uses read-only git to confirm changes touch only the project folder plus at most one index row.
+- **One-command CLI** (`python review.py <folder>`): live spinner, final report only, friendly errors, `--json` for scripts.
 - **Friendly paths**: `Review template`, `Review my-agent` or a full path all work; names are resolved inside the repository.
 - **Configurable model**: Gemini (default) or any NVIDIA-hosted model via an OpenAI-compatible endpoint.
 - **Guardrails** (see Security section).
@@ -121,7 +122,18 @@ All checking is deterministic Python (`tools.py`, `checks.py`, `links.py`). Mode
 
 ## How to Run
 
-From `agents/readme-reviewer/`:
+From `agents/readme-reviewer/` (with the virtual environment active):
+
+```bash
+# One-command CLI: spinner with live progress, then only the final report
+python review.py template          # review one folder
+python review.py                   # interactive: type a folder, get a report, repeat
+python review.py template --json   # raw JSON on stdout (the spinner goes to stderr)
+```
+
+The CLI shows a progress line such as `⠹ Reviewing: 2/4 reviewers done (18s)` while the agents work, hides the model's own chatter (including any visible "thinking") and the LiteLLM log lines, and prints a short report. Exit status is `0` when the verdict is `ready`, otherwise `1`. Provider errors (rate limit, bad key) print one friendly line; add `--debug` for full traces.
+
+You can also use ADK's own runners:
 
 ```bash
 # Simple mode
@@ -215,7 +227,7 @@ The leaked-key sample is generated at eval time into the git-ignored `evals/.gen
 | Case | Score | Verdict | Key failures |
 | :--- | :--- | :--- | :--- |
 | excellent | 100 | ready | none |
-| missing install steps | 67 | needs_changes | manifest, `.env.example`, run command, required sections |
+| missing install steps | 71 | needs_changes | manifest, `.env.example`, run command, required sections |
 | leaked API key | 92 | needs_changes | `no_secrets` (a perfect security score is required for `ready`) |
 | wrong folder name | 75 | needs_changes | `folder_name_ok` |
 | minimal README | 62 | needs_changes | manifest, `.env.example`, run command, sections, `.gitignore` coverage |
@@ -233,7 +245,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expected: `117 passed` (a few of these need the eval extra and are skipped without it). Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
+Expected: `144 passed` (a few of these need the eval extra and are skipped without it). Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
 
 For an end-to-end check, run `adk run readme_reviewer` with a valid key and review a folder containing a fake `.env` file; the report should mark it as a BLOCKER.
 
@@ -243,7 +255,8 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
 
 - **Free-tier rate limits.** Gemini's free tier allowed 5 requests/minute for `gemini-2.5-flash` when tested. Simple mode usually fits; team mode needs about seven requests per review and hit `429 RESOURCE_EXHAUSTED`. Use a billed Gemini key or the NVIDIA provider for team mode.
 - **Team mode was verified live only on NVIDIA** (`meta/muse-glimmer-30b`, one run on `template`). Its reasoning-style model prints its thinking in the reviewer notes, and once answered the aggregator in prose instead of JSON, which is why `schema_guard.py` exists. It has not completed a full run on Gemini because of the free-tier limit above.
-- **NVIDIA mode was not tested live.** Provider selection and `LiteLlm` construction are unit tested; no real NVIDIA request was made.
+- **Provider coverage.** Live runs: simple and team modes on NVIDIA `meta/muse-glimmer-30b`, simple mode on Gemini `gemini-2.5-flash`. Team mode has not completed a run on Gemini (free-tier limit). No other models were tried.
+- **Visible model thinking.** `meta/muse-glimmer-30b` prints its reasoning in its replies. `adk run` shows it; `python review.py` hides it. The report itself is unaffected because its scores come from code.
 - Section matching is by heading keyword; "thin section" is a word-count heuristic, not a quality judgement.
 - The secret and risky-code scans are regex based: they can miss unusual formats and produce false positives. Files over 1 MB are skipped.
 - `read_file` returns only the first 20 KB, and `list_project_files` lists at most 200 files.
