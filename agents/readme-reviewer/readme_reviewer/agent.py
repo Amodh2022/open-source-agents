@@ -2,6 +2,7 @@ from google.adk.agents import Agent
 
 from .guardrails import limit_tool_calls
 from .models import get_model
+from .redaction import block_secret_output, redact_model_input
 from .tools import (
     check_folder_name,
     check_manifest,
@@ -47,4 +48,6 @@ root_agent = Agent(
         read_file,
     ],
     before_tool_callback=limit_tool_calls,
+    before_model_callback=redact_model_input,
+    after_model_callback=block_secret_output,
 )

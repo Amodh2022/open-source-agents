@@ -10,12 +10,8 @@ from google.genai import types
 from pydantic import ValidationError
 
 from .checks import CRITERIA
+from .redaction import contains_credential, response_text
 from .scoring import CriterionScores, ReviewReport, build_report
-
-
-def _response_text(llm_response) -> str:
-    parts = getattr(getattr(llm_response, "content", None), "parts", None) or []
-    return "".join(p.text for p in parts if getattr(p, "text", None))
 
 
 def _parse(text: str):
@@ -44,5 +40,7 @@ def ensure_valid_review(callback_context, llm_response):
     """ADK `after_model_callback` for the aggregator: always hand ADK a valid ReviewReport."""
     if getattr(llm_response, "partial", False):
         return None  # streaming chunk; the complete answer is checked when it arrives
-    report = _parse(_response_text(llm_response)) or _fallback(callback_context.state)
+    text = response_text(llm_response)
+    # An answer containing a credential is never passed on; the deterministic report replaces it.
+    report = (None if contains_credential(text) else _parse(text)) or _fallback(callback_context.state)
     return LlmResponse(content=types.Content(role="model", parts=[types.Part(text=report.model_dump_json())]))

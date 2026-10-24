@@ -16,6 +16,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from .redaction import find_credentials, redact as _redact
+
 SKIP_DIRS = {".git", ".venv", "venv", "env", "node_modules", "__pycache__", ".pytest_cache"}
 MAX_READ_BYTES = 20_000
 MAX_LISTED_FILES = 200
@@ -43,17 +45,6 @@ GENERIC_NAMES = {"my-agent", "my-tool", "final-project", "test", "demo", "helper
 KEBAB_CASE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 INDEX_FILES = {"agents/README.md", "tools/README.md"}
 SAFE_REF = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]*$")
-
-SECRET_PATTERNS = {
-    "Google API key": re.compile(r"AIza[0-9A-Za-z_\-]{35}"),
-    "OpenAI-style key": re.compile(r"sk-[A-Za-z0-9_\-]{20,}"),
-    "NVIDIA API key": re.compile(r"nvapi-[A-Za-z0-9_\-]{20,}"),
-    "Private key block": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    "AWS access key": re.compile(r"AKIA[0-9A-Z]{16}"),
-    "Hardcoded secret assignment": re.compile(
-        r"""(?i)\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*["'][A-Za-z0-9_\-\.]{16,}["']"""
-    ),
-}
 
 RISKY_CODE_PATTERNS = {
     "shell execution via subprocess": re.compile(r"shell\s*=\s*True"),
@@ -134,12 +125,6 @@ def _is_sensitive(p: Path) -> bool:
     if name in SENSITIVE_NAMES or name.startswith("service-account"):
         return True
     return p.suffix.lower() in SENSITIVE_SUFFIXES
-
-
-def _redact(text: str) -> str:
-    for pattern in SECRET_PATTERNS.values():
-        text = pattern.sub("[REDACTED]", text)
-    return text
 
 
 def _walk(root: Path):
@@ -371,9 +356,8 @@ def scan_for_secrets(path: str) -> dict:
         if text is None:
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
-            for label, pattern in SECRET_PATTERNS.items():
-                if pattern.search(line):
-                    findings.append({"file": rel, "line": lineno, "issue": f"Possible {label} (value redacted)"})
+            for label in find_credentials(line):
+                findings.append({"file": rel, "line": lineno, "issue": f"Possible {label} (value redacted)"})
     return {
         "findings": findings,
         "ignored_local_files": ignored_local,

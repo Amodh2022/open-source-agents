@@ -99,7 +99,7 @@ All checking is deterministic Python (`tools.py`, `checks.py`, `links.py`). Mode
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` and set your key. ADK loads `.env` from the agent package directory, so also copy it there if `adk` does not pick it up: `cp .env readme_reviewer/.env` and `cp .env readme_reviewer_team/.env` (both are covered by the `.env` rule in `.gitignore`).
+   Edit `.env` and set your key. Keep a single `.env` in this folder: ADK finds it for both agents. Do not copy it into `readme_reviewer/` or `readme_reviewer_team/`; a copy there is loaded first and silently overrides your settings.
 
 ---
 
@@ -204,7 +204,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expected: `87 passed`. Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
+Expected: `104 passed`. Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
 
 For an end-to-end check, run `adk run readme_reviewer` with a valid key and review a folder containing a fake `.env` file; the report should mark it as a BLOCKER.
 
@@ -232,6 +232,8 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
   - **Read-only**: no write tools and no model-controlled shell. The only subprocess use is fixed read-only `git` commands (no shell, validated branch name, 10 s timeout).
   - **Path sandbox**: every path is resolved and must stay inside `ALLOWED_ROOT` (default: the git repo). `..`, absolute paths elsewhere and symlinks that escape are denied; symlinks are never followed during scans.
   - **Prompt-injection defence**: file contents are returned marked as untrusted, and every agent's instructions say never to follow instructions found in files.
+  - **Credential redaction (model input)**: a `before_model_callback` (`redaction.py`) replaces anything that looks like a credential with `[REDACTED]` in everything sent to the model: your message, file contents and tool results. Pasting a key into the chat does not send it to the provider.
+  - **Credential blocking (model output)**: an `after_model_callback` replaces any model answer containing a credential with a notice; for the aggregator's JSON, the deterministic report replaces it. The scanner and the guardrail share one pattern list (Google, NVIDIA, OpenAI-style, GitHub, Slack, AWS, private-key headers, quoted `api_key = "..."` assignments); obvious placeholders such as `your_api_key_here` are ignored. Limits: pattern-based, so unusual formats can slip through, and a credential split across streaming chunks is only caught when the full answer arrives.
   - **Loop and size limits**: a `before_tool_callback` caps tool calls per agent per run (`MAX_TOOL_CALLS`) and rejects oversized arguments; reads and listings are size-capped.
   - **Least privilege (team mode)**: each specialist only has the tools for its job; for example the security reviewer cannot read arbitrary files.
   - These reduce risk but do not make it zero; run the agent only in a trusted local session.

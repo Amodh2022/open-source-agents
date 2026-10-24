@@ -6,6 +6,7 @@ from google.adk.agents import Agent, ParallelAgent, SequentialAgent
 from readme_reviewer.finalizer import ReportFinalizer
 from readme_reviewer.guardrails import limit_tool_calls
 from readme_reviewer.models import get_model
+from readme_reviewer.redaction import block_secret_output, redact_model_input
 from readme_reviewer.review_tools import (
     review_documentation,
     review_reproducibility,
@@ -39,6 +40,8 @@ def _reviewer(name, criterion, tool, focus, subjective, extra_tools=()):
         tools=[tool, *extra_tools],
         output_key=f"{criterion}_review",
         before_tool_callback=limit_tool_calls,
+        before_model_callback=redact_model_input,
+        after_model_callback=block_secret_output,
     )
 
 
@@ -71,7 +74,8 @@ aggregator = Agent(
     description="Merges the criterion reviews into the structured review schema.",
     output_schema=ReviewReport,
     output_key="llm_review",
-    after_model_callback=ensure_valid_review,
+    before_model_callback=redact_model_input,
+    after_model_callback=ensure_valid_review,  # also blocks credentials
     instruction="""You merge four criterion reviews into one structured review.
 
 Reproducibility review:
