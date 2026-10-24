@@ -90,7 +90,7 @@ def _reproducibility(root, readme_text, manifest):
     return checks
 
 
-def _documentation(path, root, readme_text):
+def _documentation(path, readme_text):
     if not readme_text:
         return [_check("readme_present", "documentation", False, "Missing README.md.")]
     sections = tools.check_readme_sections(path)
@@ -174,22 +174,27 @@ def _scope(path):
     return checks
 
 
-def run_deterministic_checks(path: str) -> dict:
-    """Run every deterministic check and return pass/fail results with short reasons.
+def run_deterministic_checks(path: str, criteria=None) -> dict:
+    """Run deterministic checks and return pass/fail results with short reasons.
 
     Args:
         path: Folder name or path of the project to review.
+        criteria: Optional list of criteria to run; default is all four.
     """
     root, err = tools._check_dir(path)
     if err:
         return err
+    wanted = list(criteria) if criteria else CRITERIA
+    unknown = [c for c in wanted if c not in CRITERIA]
+    if unknown:
+        return {"error": f"Unknown criteria: {unknown}. Use {CRITERIA}."}
     readme = root / "README.md"
     readme_text = readme.read_text(encoding="utf-8", errors="replace") if readme.is_file() else ""
-    manifest = tools.check_manifest(path)
-    checks = (
-        _reproducibility(root, readme_text, manifest)
-        + _documentation(path, root, readme_text)
-        + _security(path, root)
-        + _scope(path)
-    )
+    builders = {
+        "reproducibility": lambda: _reproducibility(root, readme_text, tools.check_manifest(path)),
+        "documentation": lambda: _documentation(path, readme_text),
+        "security": lambda: _security(path, root),
+        "scope": lambda: _scope(path),
+    }
+    checks = [check for criterion in wanted for check in builders[criterion]()]
     return {"project": root.name, "checks": checks}

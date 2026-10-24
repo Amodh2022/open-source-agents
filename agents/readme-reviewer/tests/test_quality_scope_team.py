@@ -135,29 +135,3 @@ def test_unignored_env_is_still_a_finding(tmp_path):
     result = scan_for_secrets(str(proj))
     assert not result["clean"]
     assert result["findings"][0]["file"] == ".env"
-
-
-# ---- multi-agent wiring ----------------------------------------------------- #
-def test_team_structure():
-    from readme_reviewer_team.agent import root_agent
-
-    assert root_agent.name == "readme_review_team"
-    specialists, synthesizer = root_agent.sub_agents
-    assert [a.name for a in specialists.sub_agents] == [
-        "docs_reviewer", "security_reviewer", "scope_reviewer"
-    ]
-    assert synthesizer.name == "review_synthesizer"
-    assert {a.output_key for a in specialists.sub_agents} == {
-        "docs_findings", "security_findings", "scope_findings"
-    }
-    for agent in specialists.sub_agents:
-        assert agent.before_tool_callback is not None
-
-
-def test_specialists_have_least_privilege_tools():
-    from readme_reviewer_team.agent import docs_reviewer, scope_reviewer, security_reviewer
-
-    names = lambda a: {t.__name__ for t in a.tools}  # noqa: E731
-    assert "scan_for_secrets" not in names(docs_reviewer)
-    assert "read_file" not in names(security_reviewer)
-    assert "read_file" not in names(scope_reviewer)

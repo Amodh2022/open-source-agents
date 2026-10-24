@@ -1,0 +1,48 @@
+"""Keeps the aggregator's output valid so a weak model cannot crash the review.
+
+ADK raises if an `output_schema` agent answers with anything but valid JSON. That would throw
+away checks that were already computed, so this `after_model_callback` repairs the answer:
+JSON buried in prose is extracted; anything else is replaced by the deterministic report.
+"""
+
+from google.adk.models.llm_response import LlmResponse
+from google.genai import types
+from pydantic import ValidationError
+
+from .checks import CRITERIA
+from .scoring import CriterionScores, ReviewReport, build_report
+
+
+def _response_text(llm_response) -> str:
+    parts = getattr(getattr(llm_response, "content", None), "parts", None) or []
+    return "".join(p.text for p in parts if getattr(p, "text", None))
+
+
+def _parse(text: str):
+    """A valid ReviewReport from the text, or from the first {...} block inside it; else None."""
+    candidates = [text]
+    start, end = text.find("{"), text.rfind("}")
+    if 0 <= start < end:
+        candidates.append(text[start:end + 1])
+    for candidate in candidates:
+        try:
+            return ReviewReport.model_validate_json(candidate)
+        except ValidationError:
+            continue
+    return None
+
+
+def _fallback(state) -> ReviewReport:
+    checks = [c for criterion in CRITERIA for c in state.get(f"checks_{criterion}", [])]
+    if checks:
+        return build_report(checks)
+    return ReviewReport(overall_score=0, criterion_scores=CriterionScores(), failures=[],
+                        suggested_fixes=[], verdict="needs_changes")
+
+
+def ensure_valid_review(callback_context, llm_response):
+    """ADK `after_model_callback` for the aggregator: always hand ADK a valid ReviewReport."""
+    if getattr(llm_response, "partial", False):
+        return None  # streaming chunk; the complete answer is checked when it arrives
+    report = _parse(_response_text(llm_response)) or _fallback(callback_context.state)
+    return LlmResponse(content=types.Content(role="model", parts=[types.Part(text=report.model_dump_json())]))

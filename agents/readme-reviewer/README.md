@@ -13,7 +13,7 @@
 ### Key Features
 - **Two modes**
   - `readme_reviewer`: one agent calls the checks and writes the report (simple, fewer model requests).
-  - `readme_reviewer_team`: Docs, Security and Scope specialists run in parallel, then a synthesizer merges and ranks their findings (more thorough, more model requests).
+  - `readme_reviewer_team`: Reproducibility, Documentation, Security and Scope reviewers run in parallel, an aggregator fills a structured schema, and a code-only finalizer outputs the scored JSON report (score, per-criterion scores, failures, fixes, verdict). Scores always come from the deterministic checks, never from the model.
 - **Template check**: Verifies the README has every section from `template/README.md`, flags unfilled placeholders (ignoring ones quoted in code), thin sections, and commands that reference files that do not exist.
 - **Reproducibility check**: Looks for a dependency manifest, `.env.example` and `.gitignore`.
 - **Security check**: Flags `.env` files, `.venv` folders, key-like strings (Google, NVIDIA, OpenAI-style, AWS, private keys) and risky code patterns (shell execution, `eval`, recursive delete). Matched values are never printed.
@@ -47,16 +47,20 @@
 
 ### Team mode (`readme_reviewer_team`)
 ```
-                         +--> docs_reviewer ------ check_readme_sections, check_readme_quality, read_file
-[Folder name/path] --> [parallel]
-                         +--> security_reviewer -- scan_for_secrets, check_risky_code
-                         +--> scope_reviewer ----- check_folder_name, check_manifest,
-                         |                         list_project_files, check_pr_scope
-                         v   (each writes findings to session state)
-                  [review_synthesizer] --> Verdict / Blockers / Warnings / Suggested fixes
+                         +--> reproducibility_reviewer -- review_reproducibility
+[Folder name/path] -->   +--> documentation_reviewer ---- review_documentation, read_file
+   (parallel)            +--> security_reviewer --------- review_security
+                         +--> scope_reviewer ------------ review_scope
+                                      | (checks saved in session state)
+                                      v
+                       [review_aggregator]  output_schema=ReviewReport (model-written fixes)
+                                      v
+                       [report_finalizer]  code only: score, failures, verdict from the checks
+                                      v
+          {overall_score, criterion_scores, failures, suggested_fixes, verdict}
 ```
 
-All checking is deterministic Python in `readme_reviewer/tools.py`. Models only choose tools and write up results. Each specialist gets only the tools it needs.
+All checking is deterministic Python (`tools.py`, `checks.py`, `links.py`). Models only call the tools and write explanations. Score = percent of applicable checks passed per criterion, overall = mean; verdict is `ready` at 85+ with a perfect security score. If the aggregator returns invalid JSON, `schema_guard.py` replaces it with the deterministic report instead of crashing. Each reviewer gets only the tools it needs.
 
 ---
 
@@ -167,20 +171,27 @@ Captured from a genuine `adk run readme_reviewer` session with `gemini-2.5-flash
 *   Add a dependency manifest file (e.g., `requirements.txt`, `package.json`, `pyproject.toml`, `go.mod`, etc.).
 ```
 
-### Example Output (team mode, partial)
-A genuine `adk run readme_reviewer_team` session on `Review readme-reviewer` produced these specialist reports in parallel before Gemini returned `503 UNAVAILABLE`, so the synthesizer's merged report was not captured:
+### Example Output (team mode)
+Captured from a genuine `adk run readme_reviewer_team` session (`Review template`, NVIDIA `meta/muse-glimmer-30b`); this is the `report_finalizer` message:
 
+```json
+{
+  "overall_score": 84,
+  "criterion_scores": {"reproducibility": 67, "documentation": 67, "security": 100, "scope": 100},
+  "failures": [
+    {"criterion": "reproducibility", "id": "manifest_present", "reason": "No dependency manifest (requirements.txt, package.json, ...)."},
+    {"criterion": "documentation", "id": "no_placeholders", "reason": "Unfilled placeholders: [One-sentence summary of what this project does and the value it provides.], [Project Name]"},
+    {"criterion": "documentation", "id": "commands_reference_real_files", "reason": "Commands reference missing files: main.py, requirements.txt"}
+  ],
+  "suggested_fixes": [
+    "Add a dependency manifest (requirements.txt, package.json or pyproject.toml) listing every dependency.",
+    "Replace the leftover [Project Name]-style placeholders with real content.",
+    "Fix the README commands so they only reference files that exist."
+  ],
+  "verdict": "needs_changes"
+}
 ```
-[scope_reviewer]:
-- OK: The folder name 'readme-reviewer' is valid.
-- OK: Manifest files found: `requirements.txt`. `.env.example` and `.gitignore` exist.
-- OK: All changed files are within the project folder.
-- OK: `agents/README.md` was changed with 1 row added.
-[docs_reviewer]:
-- WARNING: Leftover placeholders found in README ...
-- OK: All required sections are present in README.
-```
-The placeholder warning above exposed a bug (placeholders quoted inside code were being counted). It is fixed and covered by a unit test; the run was not repeated.
+The aggregator's own JSON is also printed just before this one; only the finalizer's report is authoritative.
 
 ---
 
@@ -193,7 +204,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expected: `42 passed`. Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, and the team's structure and tool assignments.
+Expected: `87 passed`. Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
 
 For an end-to-end check, run `adk run readme_reviewer` with a valid key and review a folder containing a fake `.env` file; the report should mark it as a BLOCKER.
 
@@ -202,7 +213,7 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
 ## Known Limitations
 
 - **Free-tier rate limits.** Gemini's free tier allowed 5 requests/minute for `gemini-2.5-flash` when tested. Simple mode usually fits; team mode needs about seven requests per review and hit `429 RESOURCE_EXHAUSTED`. Use a billed Gemini key or the NVIDIA provider for team mode.
-- **Team mode was not verified end to end.** Two specialists were observed running live in parallel; the full pipeline including the synthesizer did not complete because of a Gemini `503` and then the `429` above. Wiring is covered by unit tests only.
+- **Team mode was verified live only on NVIDIA** (`meta/muse-glimmer-30b`, one run on `template`). Its reasoning-style model prints its thinking in the reviewer notes, and once answered the aggregator in prose instead of JSON, which is why `schema_guard.py` exists. It has not completed a full run on Gemini because of the free-tier limit above.
 - **NVIDIA mode was not tested live.** Provider selection and `LiteLlm` construction are unit tested; no real NVIDIA request was made.
 - Section matching is by heading keyword; "thin section" is a word-count heuristic, not a quality judgement.
 - The secret and risky-code scans are regex based: they can miss unusual formats and produce false positives. Files over 1 MB are skipped.
@@ -229,7 +240,6 @@ For an end-to-end check, run `adk run readme_reviewer` with a valid key and revi
 
 ## Future Improvements
 
-- [ ] Verify the team pipeline end to end and capture a full merged report.
 - [ ] Retry with backoff on `429`/`503` model errors.
 - [ ] Verify that the README's example commands actually run.
 - [ ] Output a machine-readable JSON report for CI use.
