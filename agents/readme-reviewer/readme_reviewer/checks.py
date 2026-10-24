@@ -6,6 +6,7 @@ Every check is plain Python (no LLM) and returns:
 Python-only rule on a Node project); it is ignored when scoring.
 """
 
+import os
 import re
 
 from . import tools
@@ -153,7 +154,10 @@ def _security(path, root):
 
 def _scope(path):
     name = tools.check_folder_name(path)
-    pr = tools.check_pr_scope(path)
+    if os.getenv("PR_SCOPE", "on").strip().lower() == "off":
+        pr = {"applicable": False, "reason": "PR scope check disabled (PR_SCOPE=off)."}
+    else:
+        pr = tools.check_pr_scope(path)
     name_ok = name["is_kebab_case"] and not name["is_generic"]
     checks = [_check(
         "folder_name_ok", "scope", name_ok,

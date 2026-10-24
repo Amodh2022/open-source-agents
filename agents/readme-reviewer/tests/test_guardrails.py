@@ -177,3 +177,12 @@ def test_unknown_provider_rejected(clean_model_env, monkeypatch):
     monkeypatch.setenv("MODEL_PROVIDER", "bogus")
     with pytest.raises(ValueError, match="Unknown MODEL_PROVIDER"):
         get_model()
+
+
+def test_generated_folder_is_skipped_like_a_cache(tmp_path):
+    proj = tmp_path / "proj"
+    (proj / ".generated" / "sample").mkdir(parents=True)
+    (proj / ".generated" / "sample" / "leak.py").write_text('KEY = "AIza' + "B" * 35 + '"\n')
+    (proj / "README.md").write_text("hi")
+    assert scan_for_secrets(str(proj))["clean"]
+    assert list_project_files(str(proj))["files"] == ["README.md"]

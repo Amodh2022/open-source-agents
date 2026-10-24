@@ -114,6 +114,7 @@ All checking is deterministic Python (`tools.py`, `checks.py`, `links.py`). Mode
 | `NVIDIA_BASE_URL` | No | `https://integrate.api.nvidia.com/v1` | OpenAI-compatible endpoint |
 | `ALLOWED_ROOT` | No | enclosing git repo, else the cwd | The only directory tree the tools may read |
 | `MAX_TOOL_CALLS` | No | `12` | Max tool calls per agent per run |
+| `PR_SCOPE` | No | `on` | `off` skips the git-based PR scope check (the evals use this) |
 | `BASE_REF` | No | `upstream/main`, then `origin/main`, then `main` | Branch the scope check compares against |
 
 ---
@@ -195,6 +196,34 @@ The aggregator's own JSON is also printed just before this one; only the finaliz
 
 ---
 
+## Evaluation
+
+Two layers, both driven by the five sample projects in `evals/samples/` (excellent, missing install steps, leaked API key, wrong folder name, minimal README) and the expectations in `evals/cases.py`:
+
+1. **Offline evals** (`tests/test_evals.py`, part of `pytest`, no key or network): run the deterministic pipeline on each sample and check verdict, score range, and which checks must fail or pass. Expectations are written from what each sample is meant to show, not copied from a run.
+2. **End-to-end evals with `adk eval`** (`evals/run_evals.sh`): the real team agent reviews each sample and its final report is compared with the expected one using ADK's `response_match_score` (ROUGE-1, threshold 0.9).
+
+```bash
+pip install -r requirements-eval.txt     # large: adds the ADK eval extra
+./evals/run_evals.sh                     # builds evals/.generated/ and the eval set, then runs adk eval
+```
+
+The leaked-key sample is generated at eval time into the git-ignored `evals/.generated/`, so no key-like text is committed.
+
+**Results.** Offline: all 5 cases pass. `adk eval` (NVIDIA `meta/muse-glimmer-30b`, one run): **5 passed, 0 failed**; `response_match_score` was 1.0 for every case, with 11 model calls, about 20,000 tokens and 57 to 109 seconds per case.
+
+| Case | Score | Verdict | Key failures |
+| :--- | :--- | :--- | :--- |
+| excellent | 100 | ready | none |
+| missing install steps | 67 | needs_changes | manifest, `.env.example`, run command, required sections |
+| leaked API key | 92 | needs_changes | `no_secrets` (a perfect security score is required for `ready`) |
+| wrong folder name | 75 | needs_changes | `folder_name_ok` |
+| minimal README | 62 | needs_changes | manifest, `.env.example`, run command, sections, `.gitignore` coverage |
+
+**What this does and does not show.** The final report is computed in code, so a 1.0 match means the whole pipeline ran (model called the right tools, structured output survived, guardrails did not interfere, finalizer produced the expected report). It does not measure the quality of the model's written advice. ROUGE-1 is coarse: an earlier threshold of 0.8 could not separate `missing install steps` from `minimal README` (0.86 similar), so the threshold is 0.9 and a test fails if any two cases become too similar. The run above used threshold 0.8; all scores were 1.0, so they also pass at 0.9, but the 0.9 setting itself has not been re-run. Tool-call order is not scored because the reviewers run in parallel.
+
+---
+
 ## How to Test
 
 The tools, guardrails, model configuration and team wiring are tested without any API key:
@@ -204,7 +233,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expected: `104 passed`. Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
+Expected: `117 passed` (a few of these need the eval extra and are skipped without it). Coverage includes path resolution and sandboxing (including `..` and symlink escapes), refusal and redaction in `read_file`, secret and risky-code scanning, credential redaction and blocking, README quality checks, the git scope check against a real temporary repository, the tool-call limiter, model provider selection, the deterministic checks and link checker (network stubbed), scoring and verdict rules, the finalizer, the schema guard, and the team's structure and tool assignments.
 
 For an end-to-end check, run `adk run readme_reviewer` with a valid key and review a folder containing a fake `.env` file; the report should mark it as a BLOCKER.
 

@@ -39,3 +39,6 @@ Thumbs.db
 
 # Google ADK local session data
 .adk/
+
+# Generated eval samples (contain a fake key)
+evals/.generated/

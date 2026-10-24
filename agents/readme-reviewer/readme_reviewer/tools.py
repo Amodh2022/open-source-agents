@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .redaction import find_credentials, redact as _redact
 
-SKIP_DIRS = {".git", ".venv", "venv", "env", "node_modules", "__pycache__", ".pytest_cache"}
+SKIP_DIRS = {".git", ".venv", "venv", "env", "node_modules", "__pycache__", ".pytest_cache", ".generated"}
 MAX_READ_BYTES = 20_000
 MAX_LISTED_FILES = 200
 MAX_SCAN_BYTES = 1_000_000
