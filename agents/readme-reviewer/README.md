@@ -70,29 +70,35 @@ agents/readme-reviewer/
 ## Architecture & Data Flow
 
 ### Simple mode (`readme_reviewer`)
-```
-[Folder name/path] --> [root_agent + Gemini/NVIDIA]
-                           |  (before_tool_callback: call limit, arg size)
-                           +--> check_folder_name, list_project_files,
-                           |    check_readme_sections, check_manifest,
-                           |    scan_for_secrets, read_file
-[Verdict / Problems / Fixes] <-- [Agent report]
+
+```mermaid
+flowchart LR
+    U["Folder name or path"] --> A["readme_reviewer<br/>(one agent)"]
+    A <-->|"calls"| T["tools: check_folder_name, list_project_files,<br/>check_readme_sections, check_manifest,<br/>scan_for_secrets, read_file"]
+    A --> O["Text report:<br/>verdict, problems, fixes"]
 ```
 
 ### Team mode (`readme_reviewer_team`)
+
+```mermaid
+flowchart LR
+    U["Folder name or path"] --> R["review_reset<br/>clears old state"]
+    R --> P
+    subgraph P["criterion_reviewers (run in parallel)"]
+        direction TB
+        A1["reproducibility_reviewer"]
+        A2["documentation_reviewer"]
+        A3["security_reviewer"]
+        A4["scope_reviewer"]
+    end
+    D[("deterministic checks<br/>review_core/analysis")] -.->|"called as tools"| P
+    P -->|"checks saved in session state"| G["review_aggregator<br/>output_schema = ReviewReport"]
+    G --> F["report_finalizer<br/>code only: score, failures, verdict"]
+    F --> O[("JSON report")]
+    S["guardrails: path sandbox, credential redaction and blocking,<br/>tool-call limit, schema repair"] -.- P
 ```
-                         +--> reproducibility_reviewer -- review_reproducibility
-[Folder name/path] -->   +--> documentation_reviewer ---- review_documentation, read_file
-   (parallel)            +--> security_reviewer --------- review_security
-                         +--> scope_reviewer ------------ review_scope
-                                      | (checks saved in session state)
-                                      v
-                       [review_aggregator]  output_schema=ReviewReport (model-written fixes)
-                                      v
-                       [report_finalizer]  code only: score, failures, verdict from the checks
-                                      v
-          {overall_score, criterion_scores, failures, suggested_fixes, verdict}
-```
+
+Every model call passes through the guardrails; the finalizer never calls a model.
 
 All checking is deterministic Python (`review_core/analysis/`: `tools.py`, `checks.py`, `links.py`, `scoring.py`). Models only call the tools and write explanations. Score = percent of applicable checks passed per criterion, overall = mean; verdict is `ready` at 85+ with a perfect security score. If the aggregator returns invalid JSON, `review_core/safety/schema_guard.py` replaces it with the deterministic report instead of crashing. Each reviewer gets only the tools it needs.
 
@@ -238,6 +244,23 @@ Captured from a genuine `adk run readme_reviewer_team` session (`Review template
 }
 ```
 The aggregator's own JSON is also printed just before this one; only the finalizer's report is authoritative.
+
+### Before/After Demo
+`python evals/demo_before_after.py` (no key needed) reviews a weak README, applies the fixes the report asks for, and reviews it again. The script applies the fixes; the reviewer itself never edits files. Real output:
+
+```
+BEFORE: score 71, verdict needs_changes
+  criteria: {'reproducibility': 0, 'documentation': 83, 'security': 100, 'scope': 100}
+  FAIL manifest_present: No dependency manifest (requirements.txt, package.json, ...).
+  FAIL env_example_present: Missing .env.example.
+  FAIL run_command_documented: No run/usage section with a code block.
+  FAIL sections_present: Missing sections: prerequisites, installation, configuration, how to run
+
+AFTER: score 100, verdict ready
+  criteria: {'reproducibility': 100, 'documentation': 100, 'security': 100, 'scope': 100}
+```
+
+The fixes were: add a pinned `requirements.txt`, add a `.env.example`, and add the Prerequisites, Installation & Setup, Configuration and How to Run sections to the README. This is the "missing install steps" sample from `evals/samples/`, scored by the deterministic pipeline.
 
 ---
 
