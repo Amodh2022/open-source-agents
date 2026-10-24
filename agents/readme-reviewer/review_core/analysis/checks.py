@@ -25,6 +25,12 @@ def _check(check_id, criterion, passed, reason, applicable=True):
     }
 
 
+def _summarize(items, describe, limit=5):
+    """First `limit` items joined for a reason string; says how many more were left out."""
+    text = "; ".join(describe(item) for item in items[:limit])
+    return text + (f"; +{len(items) - limit} more ({len(items)} in total)" if len(items) > limit else "")
+
+
 def _requirements_lines(root):
     req = root / "requirements.txt"
     if not req.is_file():
@@ -137,7 +143,7 @@ def _security(path, root):
         _check(
             "no_secrets", "security", not found,
             "No secrets, .env files or virtualenvs outside git ignore." if not found
-            else "; ".join(f"{f['file']}: {f['issue']}" for f in found[:5]),
+            else _summarize(found, lambda f: f"{f['file']}: {f['issue']}"),
         ),
         _check(
             "gitignore_covers_secrets_and_venv", "security", not missing,
@@ -147,7 +153,7 @@ def _security(path, root):
         _check(
             "no_risky_code", "security", risky["clean"],
             "No shell/eval patterns found." if risky["clean"]
-            else "; ".join(f"{f['file']}:{f['line']} {f['issue']}" for f in risky["findings"][:5]),
+            else _summarize(risky["findings"], lambda f: f"{f['file']}:{f['line']} {f['issue']}"),
         ),
     ]
 

@@ -377,7 +377,10 @@ def scan_for_secrets(path: str) -> dict:
         if text is None:
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
-            for label in find_credentials(line):
+            labels = find_credentials(line)
+            if len(labels) > 1 and "Hardcoded secret assignment" in labels:
+                labels.remove("Hardcoded secret assignment")  # the specific pattern already names it
+            for label in labels:
                 findings.append({"file": rel, "line": lineno, "issue": f"Possible {label} (value redacted)"})
     return {
         "findings": findings,

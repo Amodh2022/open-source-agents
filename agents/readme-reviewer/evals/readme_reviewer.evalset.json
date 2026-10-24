@@ -137,6 +137,33 @@
       ],
       "creation_timestamp": 0.0,
       "final_session_state": {}
+    },
+    {
+      "eval_id": "vulnerable_project",
+      "conversation": [
+        {
+          "invocation_id": "vulnerable_project-1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Review evals/.generated/vulnerable-agent"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "{\n  \"overall_score\": 65,\n  \"criterion_scores\": {\n    \"reproducibility\": 60,\n    \"documentation\": 100,\n    \"security\": 0,\n    \"scope\": 100\n  },\n  \"failures\": [\n    {\n      \"criterion\": \"reproducibility\",\n      \"id\": \"env_example_present\",\n      \"reason\": \"Missing .env.example.\"\n    },\n    {\n      \"criterion\": \"reproducibility\",\n      \"id\": \"deps_pinned\",\n      \"reason\": \"Unpinned requirements: flask>=2.0, requests\"\n    },\n    {\n      \"criterion\": \"security\",\n      \"id\": \"no_secrets\",\n      \"reason\": \"app.py: Possible Google API key (value redacted); app.py: Possible Hardcoded secret assignment (value redacted); app.py: Possible AWS access key (value redacted); app.py: Possible Hardcoded secret assignment (value redacted); config.json: Possible GitHub token (value redacted)\"\n    },\n    {\n      \"criterion\": \"security\",\n      \"id\": \"gitignore_covers_secrets_and_venv\",\n      \"reason\": \".gitignore does not cover: .env, virtualenv, __pycache__\"\n    },\n    {\n      \"criterion\": \"security\",\n      \"id\": \"no_risky_code\",\n      \"reason\": \"app.py:10 os system call; app.py:11 shell execution via subprocess; app.py:12 eval/exec call; app.py:13 eval/exec call; deploy.sh:2 recursive delete\"\n    }\n  ],\n  \"suggested_fixes\": [\n    \"Add a .env.example with placeholder values for every variable the project reads.\",\n    \"Pin every dependency in requirements.txt to an exact version with ==.\",\n    \"Remove committed secrets, .env files and virtualenvs, rotate any exposed key, and add them to .gitignore.\",\n    \"Add .env, a virtualenv folder and __pycache__/ to .gitignore.\",\n    \"Remove shell-execution, eval or exec calls, or document why they are safe.\"\n  ],\n  \"verdict\": \"needs_changes\"\n}"
+              }
+            ],
+            "role": "model"
+          },
+          "creation_timestamp": 0.0
+        }
+      ],
+      "creation_timestamp": 0.0,
+      "final_session_state": {}
     }
   ],
   "creation_timestamp": 0.0
